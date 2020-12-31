@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>AMApplicationBuild</key>
-	<string>444.4</string>
+	<string>492</string>
 	<key>AMApplicationVersion</key>
-	<string>2.8</string>
+	<string>2.10</string>
 	<key>AMDocumentVersion</key>
 	<string>2</string>
 	<key>actions</key>
@@ -59,15 +59,20 @@
 				<key>ActionParameters</key>
 				<dict>
 					<key>COMMAND_STRING</key>
-					<string>mkdir -p /tmp/photo_organizer
-log_file_base="/tmp/photo_organizer/"$(date "+%Y%m%d-%H%M%S")
-/usr/local/bin/exiftool -j "$@"  2&gt; ${log_file_base}_err.log | tee -a ${log_file_base}.log</string>
+					<string>LOG_ROOT_DIR='/tmp/photo_organizer'
+LOG_FILE_BASE="${LOG_ROOT_DIR}/$(date "+%Y%m%d-%H%M%S")"
+
+mkdir -p "${LOG_ROOT_DIR}"
+echo "/usr/local/bin/exiftool -r -j '${@}' &gt; ${log_file_base}.log" &gt; ${log_file_base}_cmd.log
+/usr/local/bin/exiftool -r -j "${@}" &gt; ${LOG_FILE_BASE}.log 2&gt; ${LOG_FILE_BASE}_err.log
+echo ${@},${LOG_FILE_BASE}.log
+</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>
 					<integer>1</integer>
 					<key>shell</key>
-					<string>/bin/sh</string>
+					<string>/bin/bash</string>
 					<key>source</key>
 					<string></string>
 				</dict>
@@ -86,7 +91,7 @@ log_file_base="/tmp/photo_organizer/"$(date "+%Y%m%d-%H%M%S")
 				<key>Class Name</key>
 				<string>RunShellScriptAction</string>
 				<key>InputUUID</key>
-				<string>69F9C002-3BDA-46EB-AEC9-F1B082EC7F83</string>
+				<string>D3332FEF-D194-4E9B-A296-AEDC7CBE2994</string>
 				<key>Keywords</key>
 				<array>
 					<string>シェル</string>
@@ -96,9 +101,9 @@ log_file_base="/tmp/photo_organizer/"$(date "+%Y%m%d-%H%M%S")
 					<string>UNIX</string>
 				</array>
 				<key>OutputUUID</key>
-				<string>58E10C5E-F702-4F61-A0B4-8F7E25403846</string>
+				<string>B144D4FE-5457-4554-9BB0-AEB351409363</string>
 				<key>UUID</key>
-				<string>562F5C45-938C-4D9A-9A9E-78C619965B8F</string>
+				<string>0AA77DC3-50C3-4E4A-8C09-931814757A78</string>
 				<key>UnlocalizedApplications</key>
 				<array>
 					<string>Automator</string>
@@ -121,9 +126,9 @@ log_file_base="/tmp/photo_organizer/"$(date "+%Y%m%d-%H%M%S")
 					<key>1</key>
 					<dict>
 						<key>default value</key>
-						<string></string>
+						<false/>
 						<key>name</key>
-						<string>source</string>
+						<string>CheckedForUserDefaultShell</string>
 						<key>required</key>
 						<string>0</string>
 						<key>type</key>
@@ -134,9 +139,9 @@ log_file_base="/tmp/photo_organizer/"$(date "+%Y%m%d-%H%M%S")
 					<key>2</key>
 					<dict>
 						<key>default value</key>
-						<false/>
+						<string></string>
 						<key>name</key>
-						<string>CheckedForUserDefaultShell</string>
+						<string>source</string>
 						<key>required</key>
 						<string>0</string>
 						<key>type</key>
@@ -174,9 +179,9 @@ log_file_base="/tmp/photo_organizer/"$(date "+%Y%m%d-%H%M%S")
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>566.500000:530.000000</string>
+				<string>336.500000:252.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Japanese.lproj/main.nib</string>
+				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<true/>
@@ -297,10 +302,9 @@ def branch_no(output_base_path, filename_format, photo_info):
     return bn + 1
 
 
-def load_configure(photo):
+def load_configure(source_dir):
     """入力フォルダにあるsetting.iniファイルより出力設定を読み込む"""
-    input_base_path = photo.get('Directory')
-    config_file = os.path.join(input_base_path, 'setting.ini')
+    config_file = os.path.join(source_dir, 'setting.ini')
     config = ConfigParser.SafeConfigParser({
         'output_base_path': DEFAULT_OUTPUT_BASE_PATH,
         'filename_format': DEFAULT_FILENAME_FORMAT,
@@ -308,13 +312,13 @@ def load_configure(photo):
     config.read([config_file])
     filename_format = config.get('DEFAULT', 'filename_format')
     output_base_path = os.path.abspath(os.path.join(
-        input_base_path, config.get('DEFAULT', 'output_base_path')))
+        config.get('DEFAULT', 'output_base_path')))
     return filename_format, output_base_path
 
 
-def copy_outbox(photo):
+def copy_outbox(source_dir, photo):
     """写真のexif属性により適切なフォルダへファイルをコピーする"""
-    filename_format, output_base_path = load_configure(photo)
+    filename_format, output_base_path = load_configure(source_dir)
     photo_info = defaultdict(lambda: 'Unknown')
     photo_info.update({
         k: v.replace(' ', '_') if isinstance(v, basestring) else v
@@ -333,7 +337,6 @@ def copy_outbox(photo):
     new_name = string.Formatter().vformat(filename_format, (), photo_info)
     new_path = os.path.join(output_base_path, new_name)
 
-
     # make dirs
     if not os.path.exists(os.path.dirname(new_path)):
         os.makedirs(os.path.dirname(new_path))
@@ -342,17 +345,17 @@ def copy_outbox(photo):
     shutil.copyfile(photo.get('SourceFile'), new_path)
 
 
-def main(input_json):
+def main(source_dir, input_json):
     """exiftoolが出力するJSONファイルの属性から写真を整理する"""
     photos = json.loads(input_json)
     for photo in photos:
         if 'Error' not in photo:
-            copy_outbox(photo)
+            copy_outbox(source_dir, photo)
 
 
 if __name__ == '__main__':
-    input_json = sys.stdin.read()
-    main(input_json)
+    source_dir, input_json = sys.stdin.read().strip().split(',')
+    main(source_dir, open(input_json, 'r').read())
 </string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
@@ -378,7 +381,7 @@ if __name__ == '__main__':
 				<key>Class Name</key>
 				<string>RunShellScriptAction</string>
 				<key>InputUUID</key>
-				<string>CBDB8DCC-396E-4630-BD31-79A9E7A76C83</string>
+				<string>A8B1FB59-9E65-4C7A-951D-4BE9224914FC</string>
 				<key>Keywords</key>
 				<array>
 					<string>シェル</string>
@@ -388,9 +391,9 @@ if __name__ == '__main__':
 					<string>UNIX</string>
 				</array>
 				<key>OutputUUID</key>
-				<string>86B868E3-0370-408A-BA36-2FDE8C792A45</string>
+				<string>1415705B-2384-415B-9C50-205FA965B617</string>
 				<key>UUID</key>
-				<string>FFF5B784-BF43-4462-A7FB-ED005BFD9FE2</string>
+				<string>36185329-D973-4178-BAD7-8273C4C8CE78</string>
 				<key>UnlocalizedApplications</key>
 				<array>
 					<string>Automator</string>
@@ -413,9 +416,9 @@ if __name__ == '__main__':
 					<key>1</key>
 					<dict>
 						<key>default value</key>
-						<string></string>
+						<false/>
 						<key>name</key>
-						<string>source</string>
+						<string>CheckedForUserDefaultShell</string>
 						<key>required</key>
 						<string>0</string>
 						<key>type</key>
@@ -426,9 +429,9 @@ if __name__ == '__main__':
 					<key>2</key>
 					<dict>
 						<key>default value</key>
-						<false/>
+						<string></string>
 						<key>name</key>
-						<string>CheckedForUserDefaultShell</string>
+						<string>source</string>
 						<key>required</key>
 						<string>0</string>
 						<key>type</key>
@@ -466,9 +469,149 @@ if __name__ == '__main__':
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>566.500000:1338.000000</string>
+				<string>336.500000:434.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Japanese.lproj/main.nib</string>
+				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
+			</dict>
+			<key>isViewVisible</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>action</key>
+			<dict>
+				<key>AMAccepts</key>
+				<dict>
+					<key>Container</key>
+					<string>List</string>
+					<key>Optional</key>
+					<true/>
+					<key>Types</key>
+					<array/>
+				</dict>
+				<key>AMActionVersion</key>
+				<string>1.0</string>
+				<key>AMApplication</key>
+				<array>
+					<string>Automator</string>
+				</array>
+				<key>AMParameterProperties</key>
+				<dict>
+					<key>message</key>
+					<dict>
+						<key>tokenizedValue</key>
+						<array>
+							<string>念のため /tmp/photo_organizer のログを確認してください。</string>
+						</array>
+					</dict>
+					<key>subtitle</key>
+					<dict>
+						<key>tokenizedValue</key>
+						<array>
+							<string>処理終了</string>
+						</array>
+					</dict>
+					<key>title</key>
+					<dict>
+						<key>tokenizedValue</key>
+						<array>
+							<string>photo organizer</string>
+						</array>
+					</dict>
+				</dict>
+				<key>AMProvides</key>
+				<dict>
+					<key>Container</key>
+					<string>List</string>
+					<key>Types</key>
+					<array/>
+				</dict>
+				<key>ActionBundlePath</key>
+				<string>/System/Library/Automator/Display Notification.action</string>
+				<key>ActionName</key>
+				<string>通知を表示</string>
+				<key>ActionParameters</key>
+				<dict>
+					<key>message</key>
+					<string>念のため /tmp/photo_organizer のログを確認してください。</string>
+					<key>subtitle</key>
+					<string>処理終了</string>
+					<key>title</key>
+					<string>photo organizer</string>
+				</dict>
+				<key>BundleIdentifier</key>
+				<string>com.apple.Automator.Display-Notification</string>
+				<key>CFBundleVersion</key>
+				<string>1.0</string>
+				<key>CanShowSelectedItemsWhenRun</key>
+				<true/>
+				<key>CanShowWhenRun</key>
+				<false/>
+				<key>Category</key>
+				<array>
+					<string>AMCategoryUtilities</string>
+				</array>
+				<key>Class Name</key>
+				<string>AMDisplayNotificationAction</string>
+				<key>InputUUID</key>
+				<string>1FBFF50A-66CC-42BE-AC81-23E31FCB344C</string>
+				<key>Keywords</key>
+				<array/>
+				<key>OutputUUID</key>
+				<string>315B2FDA-220F-47A0-8523-B6BA12DF3771</string>
+				<key>UUID</key>
+				<string>04C35462-31FE-461F-BEFD-6FEE42703944</string>
+				<key>UnlocalizedApplications</key>
+				<array>
+					<string>Automator</string>
+				</array>
+				<key>arguments</key>
+				<dict>
+					<key>0</key>
+					<dict>
+						<key>default value</key>
+						<string></string>
+						<key>name</key>
+						<string>message</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>0</string>
+					</dict>
+					<key>1</key>
+					<dict>
+						<key>default value</key>
+						<string></string>
+						<key>name</key>
+						<string>subtitle</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>1</string>
+					</dict>
+					<key>2</key>
+					<dict>
+						<key>default value</key>
+						<string></string>
+						<key>name</key>
+						<string>title</string>
+						<key>required</key>
+						<string>0</string>
+						<key>type</key>
+						<string>0</string>
+						<key>uuid</key>
+						<string>2</string>
+					</dict>
+				</dict>
+				<key>isViewVisible</key>
+				<true/>
+				<key>location</key>
+				<string>336.500000:623.000000</string>
+				<key>nibPath</key>
+				<string>/System/Library/Automator/Display Notification.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<true/>
@@ -476,20 +619,25 @@ if __name__ == '__main__':
 	</array>
 	<key>connectors</key>
 	<dict>
-		<key>ACC6D142-7174-4699-95F3-C38D8FDCCC69</key>
+		<key>7C1962F9-B989-4595-AE0C-3EE52C84E07E</key>
 		<dict>
 			<key>from</key>
-			<string>562F5C45-938C-4D9A-9A9E-78C619965B8F - 562F5C45-938C-4D9A-9A9E-78C619965B8F</string>
+			<string>0AA77DC3-50C3-4E4A-8C09-931814757A78 - 0AA77DC3-50C3-4E4A-8C09-931814757A78</string>
 			<key>to</key>
-			<string>FFF5B784-BF43-4462-A7FB-ED005BFD9FE2 - FFF5B784-BF43-4462-A7FB-ED005BFD9FE2</string>
+			<string>36185329-D973-4178-BAD7-8273C4C8CE78 - 36185329-D973-4178-BAD7-8273C4C8CE78</string>
+		</dict>
+		<key>F2775345-B286-43AB-8764-7D603EF92C76</key>
+		<dict>
+			<key>from</key>
+			<string>36185329-D973-4178-BAD7-8273C4C8CE78 - 36185329-D973-4178-BAD7-8273C4C8CE78</string>
+			<key>to</key>
+			<string>04C35462-31FE-461F-BEFD-6FEE42703944 - 04C35462-31FE-461F-BEFD-6FEE42703944</string>
 		</dict>
 	</dict>
 	<key>workflowMetaData</key>
 	<dict>
-		<key>folderActionFolderPath</key>
-		<string>~/Pictures</string>
 		<key>workflowTypeIdentifier</key>
-		<string>com.apple.Automator.folderAction</string>
+		<string>com.apple.Automator.application</string>
 	</dict>
 </dict>
 </plist>
