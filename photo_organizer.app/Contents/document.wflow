@@ -179,7 +179,7 @@ echo ${@},${LOG_FILE_BASE}.log
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>336.500000:252.000000</string>
+				<string>288.000000:252.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -250,7 +250,7 @@ import sys
 import os
 
 
-DEFAULT_OUTPUT_BASE_PATH = '../OutBox'
+DEFAULT_OUTPUT_BASE_PATH = os.path.join(os.environ.get('HOME'), 'OutBox')
 DEFAULT_FILENAME_FORMAT = (
     '{y}{m}{d}/{Model}/{y}{m}{d}{H}{M}{S}-{bn}.{FileTypeExtension}')
 
@@ -306,29 +306,29 @@ def load_configure(source_dir):
     """入力フォルダにあるsetting.iniファイルより出力設定を読み込む"""
     config_file = os.path.join(source_dir, 'setting.ini')
     config = ConfigParser.SafeConfigParser({
-        'output_base_path': DEFAULT_OUTPUT_BASE_PATH,
+        'output_photo_base': DEFAULT_OUTPUT_BASE_PATH,
+        'output_video_base': DEFAULT_OUTPUT_BASE_PATH,
         'filename_format': DEFAULT_FILENAME_FORMAT,
     })
     config.read([config_file])
     filename_format = config.get('DEFAULT', 'filename_format')
-    output_base_path = os.path.abspath(os.path.join(
-        config.get('DEFAULT', 'output_base_path')))
-    return filename_format, output_base_path
+    output_photo_base = config.get('DEFAULT', 'output_photo_base')
+    output_video_base = config.get('DEFAULT', 'output_video_base')
+    return filename_format, output_photo_base, output_video_base
 
 
-def copy_outbox(source_dir, photo):
+def copy_outbox(exif, output_base_path, filename_format):
     """写真のexif属性により適切なフォルダへファイルをコピーする"""
-    filename_format, output_base_path = load_configure(source_dir)
     photo_info = defaultdict(lambda: 'Unknown')
     photo_info.update({
         k: v.replace(' ', '_') if isinstance(v, basestring) else v
-        for k, v in photo.items()
+        for k, v in exif.items()
     })
     photo_info.update(parse_datetime(
-        photo.get('CreateDate') or
-        photo.get('DateCreated') or
-        photo.get('DateTimeOriginal') or
-        photo.get('FileModifyDate')
+        exif.get('CreateDate') or
+        exif.get('DateCreated') or
+        exif.get('DateTimeOriginal') or
+        exif.get('FileModifyDate')
     ))
 
     photo_info['bn'] = branch_no(
@@ -342,15 +342,27 @@ def copy_outbox(source_dir, photo):
         os.makedirs(os.path.dirname(new_path))
 
     # copy file
-    shutil.copyfile(photo.get('SourceFile'), new_path)
+    shutil.copyfile(exif.get('SourceFile'), new_path)
+
+
+def is_movie(exif):
+    n = len(list(filter(lambda k: 'FrameRate' in k, exif.keys())))
+    return n &gt; 0
 
 
 def main(source_dir, input_json):
     """exiftoolが出力するJSONファイルの属性から写真を整理する"""
-    photos = json.loads(input_json)
-    for photo in photos:
-        if 'Error' not in photo:
-            copy_outbox(source_dir, photo)
+    exifs = json.loads(input_json)
+    configurations = load_configure(source_dir)
+    filename_format, output_photo_base, output_video_base = configurations
+    for exif in exifs:
+        if 'Error' in exif:
+            continue
+        if is_movie(exif):
+            output_base_path = output_video_base
+        else:
+            output_base_path = output_photo_base
+        copy_outbox(exif, output_base_path, filename_format)
 
 
 if __name__ == '__main__':
@@ -381,7 +393,7 @@ if __name__ == '__main__':
 				<key>Class Name</key>
 				<string>RunShellScriptAction</string>
 				<key>InputUUID</key>
-				<string>A8B1FB59-9E65-4C7A-951D-4BE9224914FC</string>
+				<string>27EFCE24-FF2F-4456-BCBE-69A38585DC2B</string>
 				<key>Keywords</key>
 				<array>
 					<string>シェル</string>
@@ -391,9 +403,9 @@ if __name__ == '__main__':
 					<string>UNIX</string>
 				</array>
 				<key>OutputUUID</key>
-				<string>1415705B-2384-415B-9C50-205FA965B617</string>
+				<string>2F915CBA-F103-4A2B-B772-2D1FEBD834CC</string>
 				<key>UUID</key>
-				<string>36185329-D973-4178-BAD7-8273C4C8CE78</string>
+				<string>D050CEF0-8B9C-48E0-9E13-66642D486484</string>
 				<key>UnlocalizedApplications</key>
 				<array>
 					<string>Automator</string>
@@ -469,7 +481,7 @@ if __name__ == '__main__':
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>336.500000:434.000000</string>
+				<string>288.000000:434.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -609,7 +621,7 @@ if __name__ == '__main__':
 				<key>isViewVisible</key>
 				<true/>
 				<key>location</key>
-				<string>336.500000:623.000000</string>
+				<string>288.000000:623.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Display Notification.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -619,19 +631,19 @@ if __name__ == '__main__':
 	</array>
 	<key>connectors</key>
 	<dict>
-		<key>7C1962F9-B989-4595-AE0C-3EE52C84E07E</key>
+		<key>27DE41F6-503F-46DA-9420-BD05D4818884</key>
+		<dict>
+			<key>from</key>
+			<string>D050CEF0-8B9C-48E0-9E13-66642D486484 - D050CEF0-8B9C-48E0-9E13-66642D486484</string>
+			<key>to</key>
+			<string>04C35462-31FE-461F-BEFD-6FEE42703944 - 04C35462-31FE-461F-BEFD-6FEE42703944</string>
+		</dict>
+		<key>B4A011CD-5B11-4E29-9A57-548F0B28ADCD</key>
 		<dict>
 			<key>from</key>
 			<string>0AA77DC3-50C3-4E4A-8C09-931814757A78 - 0AA77DC3-50C3-4E4A-8C09-931814757A78</string>
 			<key>to</key>
-			<string>36185329-D973-4178-BAD7-8273C4C8CE78 - 36185329-D973-4178-BAD7-8273C4C8CE78</string>
-		</dict>
-		<key>F2775345-B286-43AB-8764-7D603EF92C76</key>
-		<dict>
-			<key>from</key>
-			<string>36185329-D973-4178-BAD7-8273C4C8CE78 - 36185329-D973-4178-BAD7-8273C4C8CE78</string>
-			<key>to</key>
-			<string>04C35462-31FE-461F-BEFD-6FEE42703944 - 04C35462-31FE-461F-BEFD-6FEE42703944</string>
+			<string>D050CEF0-8B9C-48E0-9E13-66642D486484 - D050CEF0-8B9C-48E0-9E13-66642D486484</string>
 		</dict>
 	</dict>
 	<key>workflowMetaData</key>
