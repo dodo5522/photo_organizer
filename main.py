@@ -103,9 +103,12 @@ def manipulate_file(exif: dict, output_base_path: str, filename_format: str, is_
     if not os.path.exists(os.path.dirname(new_path)):
         os.makedirs(os.path.dirname(new_path))
 
+    src_path = exif.get('SourceFile')
+    print(f'{"Move" if is_move else "Copy"} {src_path} to {new_path}')
+
     # manipulate file
     manipulate = shutil.move if is_move else shutil.copyfile
-    manipulate(exif.get('SourceFile'), new_path)
+    manipulate(src_path, new_path)
 
 
 def is_movie(exif: dict) -> bool:
@@ -121,20 +124,23 @@ def make_exif_json(source_dir: str, path_to_exif_tool: str) -> str:
 
     os.makedirs(log_root_dir, exist_ok=True)
 
+    command = f'{path_to_exif_tool} -r -j {source_dir} > {json_out}'
     with open(f'{log_file_base}_cmd.log', mode='w') as f:
-        f.write(f'/usr/local/bin/exiftool -r -j {source_dir} > {json_out}')
+        f.write(command)
 
-    res = run(f'{path_to_exif_tool} -r -j {source_dir} > {json_out} 2> {log_file_base}_err.log',
-        shell=True,
-        stdout=PIPE,
-        stderr=PIPE,
-    )
+    res = run(command, shell=True, stderr=PIPE)
+    if res.returncode != 0:
+        #raise RuntimeError(res.stderr.decode('utf-8'))
+        pass
 
-    return json_out if res.returncode == 0 else ''
+    return json_out
 
 
 def main(source_dir: str, input_json: str, is_move: bool) -> None:
     """exiftoolが出力するJSONファイルの属性から写真を整理する"""
+    if not input_json:
+        return
+
     exifs: list = json.loads(input_json)
     configurations = load_configure(source_dir)
     filename_format, output_photo_base, output_video_base = configurations
