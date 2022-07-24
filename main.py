@@ -79,7 +79,7 @@ def load_configure(source_dir: str) -> tuple:
     return filename_format, output_photo_base, output_video_base
 
 
-def copy_outbox(exif: dict, output_base_path: str, filename_format: str):
+def manipulate_file(exif: dict, output_base_path: str, filename_format: str, is_move: bool):
     """写真のexif属性により適切なフォルダへファイルをコピーする"""
     photo_info = defaultdict(lambda: 'Unknown')
     photo_info.update({
@@ -103,8 +103,9 @@ def copy_outbox(exif: dict, output_base_path: str, filename_format: str):
     if not os.path.exists(os.path.dirname(new_path)):
         os.makedirs(os.path.dirname(new_path))
 
-    # copy file
-    shutil.copyfile(exif.get('SourceFile'), new_path)
+    # manipulate file
+    manipulate = shutil.move if is_move else shutil.copyfile
+    manipulate(exif.get('SourceFile'), new_path)
 
 
 def is_movie(exif: dict) -> bool:
@@ -132,7 +133,7 @@ def make_exif_json(source_dir: str, path_to_exif_tool: str) -> str:
     return json_out if res.returncode == 0 else ''
 
 
-def main(source_dir: str, input_json: str) -> None:
+def main(source_dir: str, input_json: str, is_move: bool) -> None:
     """exiftoolが出力するJSONファイルの属性から写真を整理する"""
     exifs: list = json.loads(input_json)
     configurations = load_configure(source_dir)
@@ -144,7 +145,7 @@ def main(source_dir: str, input_json: str) -> None:
             output_base_path = output_video_base
         else:
             output_base_path = output_photo_base
-        copy_outbox(exif, output_base_path, filename_format)
+        manipulate_file(exif, output_base_path, filename_format, is_move)
 
 
 if __name__ == '__main__':
@@ -160,13 +161,19 @@ if __name__ == '__main__':
         type=str,
         default=PATH_TO_EXIF_TOOL,
     )
+    parser.add_argument(
+        '-m', '--move',
+        action='store_true',
+    )
 
     args: Namespace = parser.parse_args()
 
+    is_move = False
     if args.source_dir:
+        is_move = args.move
         source_dir = args.source_dir
         input_json = make_exif_json(source_dir, args.path_to_exif_tool)
     else:
         source_dir, input_json = sys.stdin.read().strip().split(',')
 
-    main(source_dir, open(input_json, 'r').read())
+    main(source_dir, open(input_json, 'r').read(), is_move)
