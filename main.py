@@ -124,7 +124,7 @@ def make_exif_json(source_dir: str, path_to_exif_tool: str) -> str:
 
     os.makedirs(log_root_dir, exist_ok=True)
 
-    command = f'{path_to_exif_tool} -r -j {source_dir} > {json_out}'
+    command = f'{path_to_exif_tool} -api largefilesupport=1 -r -j {source_dir} > {json_out}'
     with open(f'{log_file_base}_cmd.log', mode='w') as f:
         f.write(command)
 
