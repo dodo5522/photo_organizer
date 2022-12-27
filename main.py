@@ -118,6 +118,9 @@ def is_movie(exif: dict) -> bool:
 
 def make_exif_json(source_dir: str, path_to_exif_tool: str) -> str:
     """exiftoolを実行し、出力されたjsonファイルへのパスを返す"""
+    if not os.path.isfile(path_to_exif_tool):
+        raise ValueError(f'{path_to_exif_tool} not found')
+
     log_root_dir = '/tmp/photo_organizer'
     log_file_base = f'{log_root_dir}/{datetime.now().strftime("%Y%m%d-%H%M%S")}'
     json_out = f'{log_file_base}.json'
