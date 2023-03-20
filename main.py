@@ -144,7 +144,7 @@ def main(source_dir: str, input_json: str, is_move: bool) -> None:
     if not input_json:
         return
 
-    exifs: list = json.loads(input_json)
+    exifs: list = sorted(json.loads(input_json), key=lambda x: x['FileName'])
     configurations = load_configure(source_dir)
     filename_format, output_photo_base, output_video_base = configurations
     for exif in exifs:
